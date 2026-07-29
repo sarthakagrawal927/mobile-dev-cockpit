@@ -1,5 +1,11 @@
 # Mobile Dev Cockpit
 
+> [!IMPORTANT]
+> This public repository is preserved for history and attribution. The
+> maintained implementation has moved to a private Foundry monorepo under
+> `foundry/apps/mobile-cockpit`. It is created and maintained by
+> [Sarthak Agrawal](https://sarthakagrawal.dev).
+
 A native iPhone and iPad cockpit for a developer-controlled machine: pair once, enroll a discovered repository, run its dev server and agent, preview the site, dictate editable instructions, review changes, run tests, and explicitly approve deployment.
 
 ## Trust model
@@ -155,8 +161,3 @@ Simulator Release builds use Xcode's **Sign to Run Locally** identity. Do not di
 The local `with-ios-scene-lifecycle` Expo config plugin reproducibly adds UIKit's required single-window scene manifest and delegate to every generated native project. A standalone Release binary built with Xcode 27 has been installed and launched without Metro on iOS 26.4 and iOS 27 iPhone simulators and an iOS 27 iPad simulator. The plugin keeps multiple scenes disabled, preserves Expo/React Native lifecycle subscribers, and forwards scene-delivered URLs and user activities through the existing linking handlers.
 
 Active feature contracts live in `openspec/changes/` until their required simulator and physical-device evidence is complete and they are archived.
-> [!IMPORTANT]
-> This repository was merged into
-> [`sass-maker/fleet-workspace`](https://github.com/sass-maker/fleet-workspace)
-> at `fleet-ops/apps/mobile-cockpit/`. It is retained for history and
-> attribution only; do not clone it for Fleet setup or development.
