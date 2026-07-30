@@ -2,8 +2,9 @@
 
 > [!IMPORTANT]
 > This public repository is preserved for history and attribution. The
-> maintained implementation has moved to a private Foundry monorepo under
-> `foundry/apps/mobile-cockpit`. It is created and maintained by
+> maintained implementation is
+> [`foundry/apps/mobile-cockpit`](https://github.com/sass-maker/fleet-workspace/tree/main/foundry/apps/mobile-cockpit)
+> in the private Fleet Workspace. It is created and maintained by
 > [Sarthak Agrawal](https://sarthakagrawal.dev).
 
 A native iPhone and iPad cockpit for a developer-controlled machine: pair once, enroll a discovered repository, run its dev server and agent, preview the site, dictate editable instructions, review changes, run tests, and explicitly approve deployment.
