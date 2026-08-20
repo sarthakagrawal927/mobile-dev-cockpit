@@ -6,16 +6,25 @@ if (process.platform !== "win32") {
   const requireFromBridge = createRequire(
     new URL("../packages/bridge/package.json", import.meta.url),
   );
-  const packageRoot = dirname(
-    requireFromBridge.resolve("node-pty/package.json"),
-  );
-  const helper = join(
-    packageRoot,
-    "prebuilds",
-    `${process.platform}-${process.arch}`,
-    "spawn-helper",
-  );
-  if (existsSync(helper)) {
-    chmodSync(helper, statSync(helper).mode | 0o111);
+  let packageJson;
+  try {
+    packageJson = requireFromBridge.resolve("node-pty/package.json");
+  } catch (error) {
+    // The Foundry root workspace installs this package before the nested mobile
+    // workspace. Its later component install reruns this hook with node-pty present.
+    if (error?.code !== "MODULE_NOT_FOUND") throw error;
+  }
+
+  if (packageJson) {
+    const packageRoot = dirname(packageJson);
+    const helper = join(
+      packageRoot,
+      "prebuilds",
+      `${process.platform}-${process.arch}`,
+      "spawn-helper",
+    );
+    if (existsSync(helper)) {
+      chmodSync(helper, statSync(helper).mode | 0o111);
+    }
   }
 }

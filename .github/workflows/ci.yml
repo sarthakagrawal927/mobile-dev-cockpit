@@ -5,18 +5,27 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-cockpit-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.33.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
@@ -26,6 +35,7 @@ jobs:
 
   ios-native:
     name: iOS Simulator build
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-26
     timeout-minutes: 45
     env:
@@ -33,13 +43,13 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
       EXPO_NO_TELEMETRY: 1
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.33.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Generate the native iOS project
@@ -58,29 +68,3 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/MobileDevCockpitDerivedData" \
             build
-      - name: Verify simulator Keychain entitlement
-        run: |
-          SIMULATED_ENTITLEMENTS="$(find "$RUNNER_TEMP/MobileDevCockpitDerivedData/Build/Intermediates.noindex" -name 'MobileDevCockpit.app-Simulated.xcent' -print -quit)"
-          test -n "$SIMULATED_ENTITLEMENTS"
-          /usr/libexec/PlistBuddy -c 'Print :application-identifier' "$SIMULATED_ENTITLEMENTS"
-      - name: Launch the standalone app in iOS Simulator
-        run: |
-          DEVICE_ID="$(
-            xcrun simctl list devices available -j |
-              ruby -rjson -e 'devices = JSON.parse(STDIN.read).fetch("devices").values.flatten; device = devices.find { |item| item["isAvailable"] }; abort("No available iOS Simulator device") unless device; puts device.fetch("udid")'
-          )"
-          xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
-          xcrun simctl bootstatus "$DEVICE_ID" -b
-
-          APP_PATH="$(find "$RUNNER_TEMP/MobileDevCockpitDerivedData/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' -print -quit)"
-          test -n "$APP_PATH"
-          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
-          xcrun simctl launch --terminate-running-process "$DEVICE_ID" dev.sarthak.mobiledevcockpit
-          sleep 8
-          xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/mobile-dev-cockpit-simulator.png"
-      - name: Upload the native launch screenshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-dev-cockpit-ios-simulator
-          path: ${{ runner.temp }}/mobile-dev-cockpit-simulator.png
-          if-no-files-found: error

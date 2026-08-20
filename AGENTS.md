@@ -1,6 +1,9 @@
 ## Shared Fleet Standard
 
-Also read and follow `../AGENTS.md` before non-trivial work. Preserve unrelated changes, avoid secrets and production configuration, and run the smallest relevant check first.
+When this repository is checked out inside the Fleet workspace, also read and
+follow `../AGENTS.md` before non-trivial work. Preserve unrelated changes,
+avoid secrets and production configuration, and run the smallest relevant
+check first.
 
 ## Project
 

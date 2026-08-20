@@ -1,5 +1,9 @@
 export type ProjectSection =
-  "control" | "preview" | "agent" | "review" | "deploy";
+  | "control"
+  | "preview"
+  | "agent"
+  | "review"
+  | "deploy";
 
 export interface ProjectWorkspaceState {
   section: ProjectSection;

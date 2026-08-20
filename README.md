@@ -1,11 +1,11 @@
 # Mobile Dev Cockpit
 
-> [!IMPORTANT]
-> This public repository is preserved for history and attribution. The
-> maintained implementation is
-> [`foundry/apps/mobile-cockpit`](https://github.com/sass-maker/fleet-workspace/tree/main/foundry/apps/mobile-cockpit)
-> in the private Fleet Workspace. It is created and maintained by
-> [Sarthak Agrawal](https://sarthakagrawal.dev).
+> Canonical source: this standalone repository. Fleet Workspace retains only
+> its parked catalog entry and provider-resource inventory.
+
+Mobile Dev Cockpit is a parked, local-only client for supervising a
+developer-controlled machine. It is not a public application, and reactivation
+requires an explicit product decision.
 
 A native iPhone and iPad cockpit for a developer-controlled machine: pair once, enroll a discovered repository, run its dev server and agent, preview the site, dictate editable instructions, review changes, run tests, and explicitly approve deployment.
 

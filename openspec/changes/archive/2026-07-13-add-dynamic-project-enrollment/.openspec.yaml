@@ -1,4 +1,0 @@
-schema: spec-driven
-created: 2026-07-13
-goal: Remove per-project manual bridge configuration while preserving explicit
-  repository and command boundaries.

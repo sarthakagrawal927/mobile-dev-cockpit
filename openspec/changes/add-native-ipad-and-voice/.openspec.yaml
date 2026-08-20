@@ -1,4 +1,0 @@
-schema: spec-driven
-created: 2026-07-13
-goal: Ship native iPad layouts and private-first voice control using Apple
-  public frameworks without weakening bridge security.

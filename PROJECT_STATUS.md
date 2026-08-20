@@ -1,10 +1,14 @@
 # Mobile Dev Cockpit — PROJECT STATUS
 
-Last updated: 2026-07-13
+Last updated: 2026-08-20
 
 ## Why / What
 
 Mobile Dev Cockpit is a native universal iPhone and iPad interface for supervising development on a laptop or remote machine: discover and explicitly enroll a repository, start its dev server, preview the website, instruct a coding agent by text or Apple-native speech, review Git changes, run tests, and approve deployment.
+
+**Status:** Parked. Source, checks, and retained provider inventory remain for
+reference, but there is no active product work, physical-device verification,
+deployment, or Fleet Console integration target.
 
 **Users:** Developers using Codex, Claude Code, or another configured CLI agent who want to supervise an edit-to-deploy loop from an iPhone or iPad.
 
@@ -28,6 +32,12 @@ Mobile Dev Cockpit is a native universal iPhone and iPad interface for supervisi
 
 ## Timeline
 
+- 2026-08-20 — Extracted the parked source into its standalone repository.
+  Fleet Workspace retains only catalog history and explicit ownership of the
+  existing provider resources; no deployment or resource mutation occurred.
+- 2026-08-20 — Parked the product at the owner's direction. Retained source and
+  existing provider inventory without deployment or deletion; future work
+  requires an explicit reactivation decision.
 - 2026-07-12 — Product PRD accepted; OpenSpec MVP proposal, design, capability specs, and implementation tasks validated.
 - 2026-07-12 — Local monorepo scaffold started for the iOS app, desktop bridge, and shared protocol.
 - 2026-07-12 — Working MVP implemented and browser-smoke-tested through pairing, reconnect, project control, live logs, agent instruction, Git review, and deployment cancellation; 20/20 Expo Doctor checks and native iOS bundle export pass.
@@ -75,8 +85,8 @@ Mobile Dev Cockpit is a native universal iPhone and iPad interface for supervisi
 - Idempotent local Expo scene-lifecycle plugin with a single-window manifest, scene-owned React Native startup, Expo lifecycle forwarding, deep-link forwarding, template-drift tests, and standalone Xcode 27 launch evidence on iOS 26.4 and iOS 27.
 - Generated iOS 16.4 app and CocoaPods deployment targets, including guarded handling for legacy privacy resource bundles that Xcode 27 otherwise rejects.
 
-## Todo / Planned / Deferred / Blocked
+## Work queue
 
-1. Blocked: in Xcode > Settings > Apple Accounts, sign in with the Apple Account for the Personal Team so automatic signing can create the missing provisioning profile. Connect and unlock the paired iPhone 16 Pro and iPad Air 11-inch (M3), enable Developer Mode on each, then install the personal-team-signed Release build and validate Apple Speech permissions/on-device transcription/interruption teardown, WKWebView, Keychain persistence, screenshot sharing, rotation/resize, background reconnect, and the complete edit-to-deploy loop. Full Xcode, CocoaPods, and a valid personal signing identity are present; the devices are paired but currently unavailable.
-2. Deferred: hosted relay and account system, pending evidence that private Tailscale connectivity is insufficient.
-3. Deferred: App Store/TestFlight distribution decision, pending physical-device validation and policy review.
+Open work is tracked only in [GitHub Issues](https://github.com/sarthakagrawal927/mobile-dev-cockpit/issues).
+An open issue is a to-do, a linked pull request is in progress, and merge plus
+issue closure makes the work done.

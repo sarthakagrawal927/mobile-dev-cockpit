@@ -21,7 +21,10 @@ import { CockpitClient } from "./client";
 import { getLastBridgeUrl } from "./credential-store";
 
 type ConnectionStatus =
-  "connecting" | "connected" | "reconnecting" | "disconnected";
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "disconnected";
 
 export interface ConnectionState {
   status: ConnectionStatus;
@@ -151,7 +154,8 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     dispatch({ type: "error", message: undefined });
     try {
       const data = (await clientRef.current?.connect(url, pairingToken)) as
-        { snapshot?: MachineSnapshot } | undefined;
+        | { snapshot?: MachineSnapshot }
+        | undefined;
       if (data?.snapshot)
         dispatch({ type: "snapshot", snapshot: data.snapshot });
     } catch (error) {

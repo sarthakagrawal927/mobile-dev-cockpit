@@ -1,9 +1,19 @@
 export const PROTOCOL_VERSION = 1 as const;
 
 export type OperationName =
-  "dev" | "tunnel" | "build" | "test" | "agent" | "deploy" | "rollback";
+  | "dev"
+  | "tunnel"
+  | "build"
+  | "test"
+  | "agent"
+  | "deploy"
+  | "rollback";
 export type ProcessPhase =
-  "idle" | "running" | "succeeded" | "failed" | "stopped";
+  | "idle"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "stopped";
 
 export type ProjectCapabilities = Record<OperationName, boolean> & {
   agentResume: boolean;
