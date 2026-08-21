@@ -33,8 +33,9 @@ deployment, or Fleet Console integration target.
 ## Timeline
 
 - 2026-08-20 — Extracted the parked source into its standalone repository.
-  Fleet Workspace retains only catalog history and explicit ownership of the
-  existing provider resources; no deployment or resource mutation occurred.
+  Site Health now retains only the catalog entry and explicit ownership record
+  for the existing provider resources; no deployment or resource mutation
+  occurred.
 - 2026-08-20 — Parked the product at the owner's direction. Retained source and
   existing provider inventory without deployment or deletion; future work
   requires an explicit reactivation decision.

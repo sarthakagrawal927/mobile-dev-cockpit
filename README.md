@@ -1,7 +1,7 @@
 # Mobile Dev Cockpit
 
-> Canonical source: this standalone repository. Fleet Workspace retains only
-> its parked catalog entry and provider-resource inventory.
+> Canonical source: this standalone repository. Site Health retains only its
+> parked catalog entry and provider-resource inventory.
 
 Mobile Dev Cockpit is a parked, local-only client for supervising a
 developer-controlled machine. It is not a public application, and reactivation
