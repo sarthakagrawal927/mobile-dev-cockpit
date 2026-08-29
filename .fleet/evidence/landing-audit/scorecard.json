@@ -1,0 +1,17 @@
+{
+  "$schema": "fleet.landing-audit.v1",
+  "project": "mobile-dev-cockpit",
+  "priority": "P4",
+  "decision": "Dropped",
+  "auditedAt": "2026-08-29",
+  "releaseState": "Not applicable: the product is permanently parked, has no domain or deployment, and its retained source is not a public landing website.",
+  "gates": {
+    "contentPurpose": { "status": "not-applicable" },
+    "designQuality": { "status": "not-applicable" },
+    "seo": { "status": "not-applicable" },
+    "geo": { "status": "not-applicable" },
+    "performance": { "status": "not-applicable" }
+  },
+  "migrationCandidate": false,
+  "note": "Do not create or migrate a landing page unless the owner explicitly reactivates the product."
+}
