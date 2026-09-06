@@ -88,23 +88,25 @@ export default function HomeScreen() {
       >
         <View style={styles.hero}>
           <View style={styles.heroTopline}>
-            <Badge tone="accent">Tailnet native</Badge>
+            <Badge tone="warning">Parked prototype</Badge>
             <Text maxFontSizeMultiplier={1.6} style={styles.version}>
-              iOS cockpit · 01
+              Reference build · no deployment target
             </Text>
           </View>
           <Text maxFontSizeMultiplier={1.8} style={styles.title}>
-            Your build loop, in your hand.
+            A retained mobile build-loop experiment.
           </Text>
           <Text maxFontSizeMultiplier={2} style={styles.subtitle}>
-            Pair a trusted machine. Preview the real site. Supervise the agent.
-            Review before anything ships.
+            The source can pair a trusted machine, preview a site, supervise an
+            agent, and review changes. Product work is parked: there is no
+            active deployment, Fleet integration target, or completed
+            physical-device gate.
           </Text>
           <View style={styles.steps}>
             {[
               ["01", "Bridge"],
               ["02", "Pair"],
-              ["03", "Ship"],
+              ["03", "Inspect"],
             ].map(([number, label]) => (
               <View key={number} style={styles.step}>
                 <Text maxFontSizeMultiplier={1.6} style={styles.stepNumber}>
