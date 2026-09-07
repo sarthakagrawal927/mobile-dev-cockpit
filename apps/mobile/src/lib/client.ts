@@ -59,6 +59,7 @@ export class CockpitClient {
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private reconnectAttempt = 0;
   private shouldReconnect = false;
+  private credentialWrites: Promise<void> = Promise.resolve();
   private readonly pending = new Map<string, PendingRequest>();
 
   constructor(private readonly callbacks: ClientCallbacks) {}
@@ -119,7 +120,7 @@ export class CockpitClient {
   async forget(): Promise<void> {
     const url = this.url;
     this.disconnect(false);
-    if (url) await deleteCredential(url);
+    if (url) await this.writeCredential(() => deleteCredential(url));
     await deleteLastBridgeUrl();
     this.url = undefined;
   }
@@ -137,6 +138,11 @@ export class CockpitClient {
       this.socket = socket;
       let authenticated = false;
       socket.onopen = async () => {
+        if (this.socket !== socket) {
+          reject(new Error("Connection was replaced"));
+          socket.close();
+          return;
+        }
         try {
           const data = pairingToken
             ? await this.request<{ sessionToken: string; snapshot: unknown }>({
@@ -148,38 +154,65 @@ export class CockpitClient {
                 type: "authenticate",
                 sessionToken: sessionToken ?? "",
               });
+          if (this.socket !== socket)
+            throw new Error("Connection was replaced");
           if (
             pairingToken &&
             "sessionToken" in data &&
             typeof data.sessionToken === "string"
           ) {
-            await setCredential(url, data.sessionToken);
+            const token = data.sessionToken;
+            await this.writeCredential(async () => {
+              if (this.socket !== socket)
+                throw new Error("Connection was replaced");
+              await setCredential(url, token);
+            });
           }
+          if (this.socket !== socket)
+            throw new Error("Connection was replaced");
           authenticated = true;
           resolve(data);
         } catch (error) {
           if (
+            this.socket === socket &&
             error instanceof BridgeRequestError &&
             ["authentication_failed", "pairing_rejected"].includes(error.code)
           ) {
             this.shouldReconnect = false;
             if (error.code === "authentication_failed")
-              await deleteCredential(url);
+              await this.writeCredential(async () => {
+                if (this.socket === socket) await deleteCredential(url);
+              });
           }
           reject(error);
           socket.close();
         }
       };
-      socket.onmessage = (message) => this.onMessage(message.data);
-      socket.onerror = () => this.callbacks.onError("Bridge connection failed");
+      socket.onmessage = (message) => {
+        if (this.socket === socket) this.onMessage(message.data);
+      };
+      socket.onerror = () => {
+        if (this.socket === socket)
+          this.callbacks.onError("Bridge connection failed");
+      };
       socket.onclose = () => {
         if (!authenticated)
           reject(new Error("Bridge closed before authentication"));
+        if (this.socket !== socket) return;
+        this.socket = undefined;
         this.rejectPending("Bridge connection closed");
         if (this.shouldReconnect) this.scheduleReconnect();
         else this.callbacks.onStatus("disconnected");
       };
     });
+  }
+
+  // Platform storage writes cannot be cancelled. Finish an older write before
+  // the active connection replaces it (or Forget removes it).
+  private writeCredential(write: () => Promise<void>): Promise<void> {
+    const pending = this.credentialWrites.then(write);
+    this.credentialWrites = pending.catch(() => {});
+    return pending;
   }
 
   private onMessage(raw: unknown): void {

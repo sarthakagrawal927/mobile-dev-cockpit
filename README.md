@@ -155,10 +155,47 @@ pnpm mobile:export:ios
 
 `expo prebuild --platform ios --no-install` can generate the native project. A physical-device build still requires full Xcode and CocoaPods on the Mac. In Xcode > Settings > Apple Accounts, sign in with the Apple Account that should own the Personal Team, then connect and unlock the device, enable Developer Mode under Privacy & Security, and let automatic signing create the provisioning profile. A paid Apple Developer Program membership is not required for personal on-device testing, but free Personal Team profiles expire periodically. Voice recognition itself requires physical microphone hardware for final validation.
 The generated app and every CocoaPods target share the iOS 16.4 deployment floor. This includes older privacy resource bundles that otherwise retain an iOS 9 target and fail generic physical-device builds under Xcode 27.
-Every push performs a clean native prebuild, pod install, and locally signed Release compile on Xcode 26.4 or newer in GitHub Actions. CI then installs the standalone app in a simulator, launches it without Metro, and uploads a screenshot of the rendered onboarding screen.
+The retained CI definition runs checks, bridge build, and web/iOS JavaScript exports on push or pull request. Its native job runs only on manual dispatch and compiles an iOS Simulator Release build; the current workflow does not install or launch that app or capture a screenshot. Repository Actions are disabled (verified 2026-09-07), so no current-revision CI run is expected. An older manual run remains queued; it is not current qualification. Re-enabling Actions is a separate owner decision.
 
 Simulator Release builds use Xcode's **Sign to Run Locally** identity. Do not disable code signing for the installed simulator bundle: that strips the simulated application identifier used by Keychain and causes SecureStore pairing persistence to fail before the dashboard opens.
 
 The local `with-ios-scene-lifecycle` Expo config plugin reproducibly adds UIKit's required single-window scene manifest and delegate to every generated native project. A standalone Release binary built with Xcode 27 has been installed and launched without Metro on iOS 26.4 and iOS 27 iPhone simulators and an iOS 27 iPad simulator. The plugin keeps multiple scenes disabled, preserves Expo/React Native lifecycle subscribers, and forwards scene-delivered URLs and user activities through the existing linking handlers.
 
-Active feature contracts live in `openspec/changes/` until their required simulator and physical-device evidence is complete and they are archived.
+## Retained qualification and acceptance gaps
+
+This remains an inactive reference build, not an active product roadmap. There
+is no `openspec/changes/` directory or active feature backlog. New work requires
+an explicit reactivation decision; any resulting tasks belong in this repository's
+GitHub Issues.
+
+Local qualification on 2026-09-07 used the existing frozen lockfile and toolchain:
+
+- `pnpm check`, `pnpm build:bridge`, `pnpm mobile:export`, and
+  `pnpm mobile:export:ios` pass. The built bridge CLI help also runs.
+- The actual `CockpitClient` and `BridgeServer` pair over a loopback WebSocket,
+  discover a synthetic repository, require one-use enrollment approval, execute
+  its allowlisted test command, report exit code/logs, reconnect from stored
+  credentials, and forget the session. Storage is a synthetic browser adapter;
+  this does not qualify native SecureStore or a physical phone.
+- A regression test reproduces and repairs late close/error/message callbacks
+  from a replaced socket affecting the newly connected machine. Only callbacks
+  from the currently owned socket can update the connection or deliver events.
+- Replacing a still-connecting socket settles its old handshake. Delayed
+  credential writes are serialized within the app's client, so an older pairing
+  cannot overwrite a newer session or restore a session after Forget. The tests
+  delay the storage adapter; native Keychain latency remains a device check.
+- Existing tests separately cover discovery boundaries, expired/replayed
+  approvals, process-group stop, review, and synthetic agent/deploy commands.
+  No provider, deployment, private repository or tailnet is used by these tests.
+
+Before any reactivation or sharing decision, retain these owner acceptance tasks:
+
+- Pair a physical phone with a private reachable bridge and verify native
+  SecureStore recovery, expiry/forget, app background/reconnect, and switching
+  machines under real network interruption.
+- Verify enrollment, dev preview, agent PTY interaction, review and explicit
+  approvals together on that paired device with a disposable repository.
+- Verify iPhone/iPad layout, preview isolation and microphone/speech behavior on
+  supported hardware. JavaScript export is not native compilation or device proof.
+- Decide whether to re-enable repository Actions; then obtain current-revision
+  check/native receipts. Keep product lifecycle inactive until explicitly changed.

@@ -1,9 +1,18 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   PROTOCOL_VERSION,
+  type CommandCandidate,
+  type MachineSnapshot,
+  type RepositorySummary,
   type ClientRequest,
   type ServerResponse,
 } from "@mobile-dev-cockpit/protocol";
@@ -11,6 +20,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import type { BridgeConfig } from "../src/config.js";
 import { BridgeServer } from "../src/server.js";
+import { CockpitClient } from "../../../apps/mobile/src/lib/client.js";
 
 const servers: BridgeServer[] = [];
 
@@ -393,6 +403,94 @@ describe("BridgeServer", () => {
     });
     expect(restarted.snapshot().projects).toEqual([]);
     restartedSocket.close();
+  });
+
+  it("pairs the actual mobile client, enrolls, runs an allowlisted test and reconnects from storage", async () => {
+    const config = dynamicFixture();
+    const server = new BridgeServer(config);
+    const port = await server.listen();
+    const storage = new Map<string, string>();
+    vi.stubGlobal("WebSocket", WebSocket);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    const callbacks = {
+      onStatus: () => {},
+      onEvent: () => {},
+      onError: () => {},
+    };
+    const client = new CockpitClient(callbacks);
+    const reopened = new CockpitClient(callbacks);
+    const url = `ws://127.0.0.1:${port}`;
+    try {
+      await client.connect(url, server.pairingToken);
+      const discovery = await client.request<{
+        repositories: RepositorySummary[];
+      }>({ type: "discoverRepositories" });
+      const repository = discovery.repositories[0]!;
+      const options = await client.request<{ candidates: CommandCandidate[] }>({
+        type: "getEnrollmentOptions",
+        repositoryId: repository.id,
+      });
+      const candidate = options.candidates.find(
+        (item) => item.operation === "test",
+      )!;
+      expect(candidate).toBeDefined();
+      const proposal = await client.request<{ proposal: { id: string } }>({
+        type: "requestEnrollment",
+        repositoryId: repository.id,
+        candidateIds: [candidate.id],
+      });
+      expect(server.snapshot().projects).toEqual([]);
+      const enrolled = await client.request<{ projectId: string }>({
+        type: "resolveEnrollment",
+        proposalId: proposal.proposal.id,
+        approve: true,
+      });
+      await expect(
+        client.request({
+          type: "resolveEnrollment",
+          proposalId: proposal.proposal.id,
+          approve: true,
+        }),
+      ).rejects.toMatchObject({ code: "approval_expired" });
+      await client.request({
+        type: "startOperation",
+        projectId: enrolled.projectId,
+        operation: "test",
+      });
+      await vi.waitFor(
+        () =>
+          expect(server.snapshot().projects[0]?.processes.test?.phase).toBe(
+            "succeeded",
+          ),
+        { timeout: 5000 },
+      );
+      expect(
+        server
+          .snapshot()
+          .projects[0]?.processes.test?.recentLogs.some((log) =>
+            log.line.includes("checked"),
+          ),
+      ).toBe(true);
+      client.disconnect();
+      await reopened.connect(url);
+      const snapshot = await reopened.request<{ snapshot: MachineSnapshot }>({
+        type: "getSnapshot",
+      });
+      expect(snapshot.snapshot.projects[0]?.id).toBe(enrolled.projectId);
+      expect(snapshot.snapshot.projects[0]?.processes.test?.exitCode).toBe(0);
+      await reopened.forget();
+      expect(storage.size).toBe(0);
+    } finally {
+      client.disconnect();
+      reopened.disconnect();
+      await server.close();
+      vi.unstubAllGlobals();
+      rmSync(config.discoveryRoots[0]!, { recursive: true, force: true });
+    }
   });
 
   it("expires enrollment approvals", async () => {

@@ -1,12 +1,32 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CockpitClient } from "../src/lib/client";
 import { getCredential, getLastBridgeUrl } from "../src/lib/credential-store";
+
+const credentialGate = vi.hoisted(() => ({
+  beforeWrite: async (_url: string, _token: string) => {},
+}));
+vi.mock("../src/lib/credential-store", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../src/lib/credential-store")>();
+  return {
+    ...actual,
+    setCredential: async (url: string, token: string) => {
+      await credentialGate.beforeWrite(url, token);
+      await actual.setCredential(url, token);
+    },
+  };
+});
 
 const storage = new Map<string, string>();
 
 class FakeWebSocket {
   static readonly OPEN = 1;
   static requests: string[] = [];
+  static instances: FakeWebSocket[] = [];
+  static deferClose = false;
+  static deferOpen = false;
+  static nextSession = "stored-session";
+  readonly sessionToken = FakeWebSocket.nextSession;
   static rejectAuthentication = false;
   readyState = 0;
   onopen?: () => void;
@@ -15,6 +35,8 @@ class FakeWebSocket {
   onclose?: () => void;
 
   constructor(readonly url: string) {
+    FakeWebSocket.instances.push(this);
+    if (FakeWebSocket.deferOpen) return;
     queueMicrotask(() => {
       this.readyState = FakeWebSocket.OPEN;
       this.onopen?.();
@@ -44,7 +66,7 @@ class FakeWebSocket {
     const data =
       request.type === "pair"
         ? {
-            sessionToken: "stored-session",
+            sessionToken: this.sessionToken,
             sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
             snapshot: machineSnapshot,
           }
@@ -63,9 +85,9 @@ class FakeWebSocket {
   }
 
   close(): void {
-    if (this.readyState !== FakeWebSocket.OPEN) return;
+    if (this.readyState !== 0 && this.readyState !== FakeWebSocket.OPEN) return;
     this.readyState = 3;
-    queueMicrotask(() => this.onclose?.());
+    if (!FakeWebSocket.deferClose) queueMicrotask(() => this.onclose?.());
   }
 }
 
@@ -79,6 +101,11 @@ const machineSnapshot = {
 beforeEach(() => {
   storage.clear();
   FakeWebSocket.requests = [];
+  FakeWebSocket.instances = [];
+  FakeWebSocket.deferClose = false;
+  FakeWebSocket.deferOpen = false;
+  FakeWebSocket.nextSession = "stored-session";
+  credentialGate.beforeWrite = async () => {};
   FakeWebSocket.rejectAuthentication = false;
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -115,6 +142,108 @@ describe("CockpitClient credentials", () => {
     second.disconnect();
   });
 
+  it("ignores a replaced socket's late close while the new machine is connected", async () => {
+    const statuses: string[] = [];
+    const events: unknown[] = [];
+    const errors: string[] = [];
+    const client = new CockpitClient({
+      onStatus: (status) => statuses.push(status),
+      onEvent: (event) => events.push(event),
+      onError: (error) => errors.push(error),
+    });
+    try {
+      await client.connect("ws://first.test:4782", "first-pair");
+      const first = FakeWebSocket.instances[0]!;
+      FakeWebSocket.deferClose = true;
+      await client.connect("ws://second.test:4782", "second-pair");
+      const second = FakeWebSocket.instances[1]!;
+      const send = second.send.bind(second);
+      let queuedRequest = "";
+      second.send = (raw) => {
+        queuedRequest = raw;
+      };
+      const pendingSnapshot = client.request({ type: "getSnapshot" });
+      first.onclose?.();
+      first.onerror?.();
+      first.onmessage?.({
+        data: JSON.stringify({
+          version: 1,
+          type: "snapshot",
+          snapshot: machineSnapshot,
+        }),
+      });
+      expect(events).toEqual([]);
+      expect(errors).toEqual([]);
+      expect(statuses.at(-1)).toBe("connected");
+      send(queuedRequest);
+      await expect(pendingSnapshot).resolves.toMatchObject({
+        snapshot: machineSnapshot,
+      });
+    } finally {
+      client.disconnect();
+    }
+  });
+
+  it("settles an obsolete CONNECTING handshake that only closes", async () => {
+    const statuses: string[] = [];
+    const client = new CockpitClient({
+      onStatus: (status) => statuses.push(status),
+      onEvent: () => {},
+      onError: () => {},
+    });
+    try {
+      FakeWebSocket.deferOpen = true;
+      const obsolete = client.connect("ws://old.test:4782", "old-pair").then(
+        () => "unexpected success",
+        () => "replaced",
+      );
+      FakeWebSocket.deferOpen = false;
+      await client.connect("ws://new.test:4782", "new-pair");
+      await expect(obsolete).resolves.toBe("replaced");
+      expect(statuses.at(-1)).toBe("connected");
+    } finally {
+      client.disconnect();
+    }
+  });
+
+  it("orders delayed same-machine credential writes so re-pair keeps the newest session", async () => {
+    let releaseOld: (() => void) | undefined;
+    credentialGate.beforeWrite = async (_url, token) => {
+      if (token === "old-session")
+        await new Promise<void>((resolve) => {
+          releaseOld = resolve;
+        });
+    };
+    const client = new CockpitClient({
+      onStatus: () => {},
+      onEvent: () => {},
+      onError: () => {},
+    });
+    try {
+      FakeWebSocket.nextSession = "old-session";
+      const obsolete = client
+        .connect("ws://machine.test:4782", "old-pair")
+        .catch(() => undefined);
+      await vi.waitFor(() => expect(releaseOld).toBeDefined());
+      FakeWebSocket.nextSession = "new-session";
+      const current = client.connect("ws://machine.test:4782", "new-pair");
+      await vi.waitFor(() =>
+        expect(
+          FakeWebSocket.requests.filter((request) => request === "pair"),
+        ).toHaveLength(2),
+      );
+      // Allow the newer handshake's storage work to finish before releasing
+      // the older platform write. Without serialization, old wins last.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      releaseOld?.();
+      await Promise.all([obsolete, current]);
+      expect(await getCredential("ws://machine.test:4782")).toBe("new-session");
+    } finally {
+      releaseOld?.();
+      client.disconnect();
+    }
+  });
+
   it("forgets the stored bridge and credential explicitly", async () => {
     const client = new CockpitClient({
       onStatus: () => {},
@@ -125,6 +254,34 @@ describe("CockpitClient credentials", () => {
     await client.forget();
     expect(await getCredential("ws://machine.test:4782")).toBeNull();
     expect(await getLastBridgeUrl()).toBeNull();
+  });
+
+  it("forgets even when an obsolete pairing storage write finishes late", async () => {
+    let releaseWrite: (() => void) | undefined;
+    credentialGate.beforeWrite = async () => {
+      await new Promise<void>((resolve) => {
+        releaseWrite = resolve;
+      });
+    };
+    const client = new CockpitClient({
+      onStatus: () => {},
+      onEvent: () => {},
+      onError: () => {},
+    });
+    try {
+      const pairing = client
+        .connect("ws://machine.test:4782", "pair-token")
+        .catch(() => undefined);
+      await vi.waitFor(() => expect(releaseWrite).toBeDefined());
+      const forgetting = client.forget();
+      releaseWrite?.();
+      await Promise.all([pairing, forgetting]);
+      expect(await getCredential("ws://machine.test:4782")).toBeNull();
+      expect(await getLastBridgeUrl()).toBeNull();
+    } finally {
+      releaseWrite?.();
+      client.disconnect();
+    }
   });
 
   it("removes an expired stored credential and requires pairing again", async () => {
